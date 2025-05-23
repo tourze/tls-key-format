@@ -229,4 +229,108 @@ class CertificateHandlerParsingTest extends TestCase
         $keyDetails = openssl_pkey_get_details($publicKeyResource);
         $this->assertSame(OPENSSL_KEYTYPE_EC, $keyDetails['type']);
     }
+
+    public function test_parseCertificate_withMinimalValidCertificate()
+    {
+        // 测试最小有效证书
+        $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
+        $privateKey = openssl_pkey_get_private($keyPair['private_key']);
+        
+        // 只包含必需的CN字段
+        $dn = ['CN' => 'minimal.test'];
+        $csr = openssl_csr_new($dn, $privateKey);
+        $cert = openssl_csr_sign($csr, null, $privateKey, 1); // 最短有效期1天
+        openssl_x509_export($cert, $certPem);
+        
+        $certInfo = $this->certificateHandler->parseCertificate($certPem);
+        
+        $this->assertIsArray($certInfo);
+        $this->assertSame('minimal.test', $certInfo['subject']['CN']);
+        $this->assertArrayHasKey('subject', $certInfo);
+        $this->assertArrayHasKey('issuer', $certInfo);
+    }
+
+    public function test_extractPublicKey_withDifferentKeyTypes()
+    {
+        // 测试不同密钥类型的公钥提取
+        $keyTypes = [
+            ['rsa', 1024],
+            ['rsa', 2048],
+            ['ec', 'prime256v1'],
+            ['ec', 'secp384r1'],
+        ];
+        
+        foreach ($keyTypes as [$type, $param]) {
+            if ($type === 'rsa') {
+                $keyPair = $this->keyHandler->generateRsaKeyPair($param);
+                $expectedType = OPENSSL_KEYTYPE_RSA;
+            } else {
+                $keyPair = $this->keyHandler->generateEcKeyPair($param);
+                $expectedType = OPENSSL_KEYTYPE_EC;
+            }
+            
+            $privateKey = openssl_pkey_get_private($keyPair['private_key']);
+            $dn = ['CN' => "test-{$type}-{$param}.example.com"];
+            $csr = openssl_csr_new($dn, $privateKey);
+            $cert = openssl_csr_sign($csr, null, $privateKey, 365);
+            openssl_x509_export($cert, $certPem);
+            
+            $publicKey = $this->certificateHandler->extractPublicKey($certPem);
+            $publicKeyResource = openssl_pkey_get_public($publicKey);
+            $keyDetails = openssl_pkey_get_details($publicKeyResource);
+            
+            $this->assertSame($expectedType, $keyDetails['type']);
+        }
+    }
+
+    public function test_parseCertificate_withSpecialCharactersInSubject()
+    {
+        // 测试主题中包含特殊字符的证书
+        $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
+        $privateKey = openssl_pkey_get_private($keyPair['private_key']);
+        
+        $dn = [
+            'CN' => 'test-special.example.com',
+            'O' => 'Test & Company, Ltd.',
+            'OU' => 'R&D Department',
+            'L' => 'San José',
+            'C' => 'US',
+        ];
+        
+        $csr = openssl_csr_new($dn, $privateKey);
+        $cert = openssl_csr_sign($csr, null, $privateKey, 365);
+        openssl_x509_export($cert, $certPem);
+        
+        $certInfo = $this->certificateHandler->parseCertificate($certPem);
+        
+        $this->assertSame('test-special.example.com', $certInfo['subject']['CN']);
+        $this->assertSame('Test & Company, Ltd.', $certInfo['subject']['O']);
+        $this->assertSame('R&D Department', $certInfo['subject']['OU']);
+        $this->assertSame('San José', $certInfo['subject']['L']);
+    }
+
+    public function test_extractPublicKey_memoryManagement()
+    {
+        // 测试多次提取公钥时的内存管理
+        $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
+        $privateKey = openssl_pkey_get_private($keyPair['private_key']);
+        $dn = ['CN' => 'memory-test.example.com'];
+        $csr = openssl_csr_new($dn, $privateKey);
+        $cert = openssl_csr_sign($csr, null, $privateKey, 365);
+        openssl_x509_export($cert, $certPem);
+        
+        $initialMemory = memory_get_usage();
+        
+        // 多次提取公钥
+        for ($i = 0; $i < 10; $i++) {
+            $publicKey = $this->certificateHandler->extractPublicKey($certPem);
+            $this->assertStringContainsString('-----BEGIN PUBLIC KEY-----', $publicKey);
+        }
+        
+        $finalMemory = memory_get_usage();
+        $memoryIncrease = $finalMemory - $initialMemory;
+        
+        // 内存增长应该是合理的（小于1MB）
+        $this->assertLessThan(1024 * 1024, $memoryIncrease);
+    }
 } 
