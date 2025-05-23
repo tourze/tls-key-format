@@ -1,0 +1,227 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tourze\TLSKeyFormat\Tests;
+
+use PHPUnit\Framework\TestCase;
+use Tourze\TLSKeyFormat\Exception\KeyFormatException;
+use Tourze\TLSKeyFormat\KeyHandler;
+
+/**
+ * KeyHandler密钥加密解密功能测试
+ */
+class KeyHandlerEncryptionTest extends TestCase
+{
+    private KeyHandler $keyHandler;
+    
+    protected function setUp(): void
+    {
+        $this->keyHandler = new KeyHandler();
+    }
+    
+    public function test_encryptPrivateKey_withValidKeyAndPassphrase()
+    {
+        // 生成私钥
+        $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
+        $privateKey = $keyPair['private_key'];
+        $passphrase = 'test-password-123';
+        
+        // 加密私钥
+        $encryptedKey = $this->keyHandler->encryptPrivateKey($privateKey, $passphrase);
+        
+        // 验证加密后的密钥格式
+        $this->assertStringContainsString('-----BEGIN ENCRYPTED PRIVATE KEY-----', $encryptedKey);
+        $this->assertStringContainsString('-----END ENCRYPTED PRIVATE KEY-----', $encryptedKey);
+        
+        // 验证加密后的密钥与原始密钥不同
+        $this->assertNotSame($privateKey, $encryptedKey);
+        
+        // 验证加密后的密钥可以用密码解密
+        $decryptedKey = openssl_pkey_get_private($encryptedKey, $passphrase);
+        $this->assertNotFalse($decryptedKey);
+    }
+    
+    public function test_encryptPrivateKey_withCustomCipher()
+    {
+        $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
+        $privateKey = $keyPair['private_key'];
+        $passphrase = 'test-password';
+        $cipher = 'aes-128-cbc';
+        
+        $encryptedKey = $this->keyHandler->encryptPrivateKey($privateKey, $passphrase, $cipher);
+        
+        $this->assertStringContainsString('-----BEGIN ENCRYPTED PRIVATE KEY-----', $encryptedKey);
+        
+        // 验证可以用相同密码解密
+        $decryptedKey = openssl_pkey_get_private($encryptedKey, $passphrase);
+        $this->assertNotFalse($decryptedKey);
+    }
+    
+    public function test_encryptPrivateKey_withInvalidPrivateKey()
+    {
+        $this->expectException(KeyFormatException::class);
+        $this->expectExceptionMessage('无法加载私钥');
+        
+        $invalidKey = "-----BEGIN PRIVATE KEY-----\nInvalidData\n-----END PRIVATE KEY-----";
+        $this->keyHandler->encryptPrivateKey($invalidKey, 'password');
+    }
+    
+    public function test_encryptPrivateKey_withEmptyPassphrase()
+    {
+        $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
+        $privateKey = $keyPair['private_key'];
+        
+        // 空密码应该能成功加密
+        $encryptedKey = $this->keyHandler->encryptPrivateKey($privateKey, '');
+        $this->assertStringContainsString('-----BEGIN ENCRYPTED PRIVATE KEY-----', $encryptedKey);
+    }
+    
+    public function test_decryptPrivateKey_withValidEncryptedKey()
+    {
+        // 先生成并加密私钥
+        $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
+        $originalPrivateKey = $keyPair['private_key'];
+        $passphrase = 'test-password-456';
+        
+        $encryptedKey = $this->keyHandler->encryptPrivateKey($originalPrivateKey, $passphrase);
+        
+        // 解密私钥
+        $decryptedKey = $this->keyHandler->decryptPrivateKey($encryptedKey, $passphrase);
+        
+        // 验证解密后的密钥格式
+        $this->assertStringContainsString('-----BEGIN PRIVATE KEY-----', $decryptedKey);
+        $this->assertStringContainsString('-----END PRIVATE KEY-----', $decryptedKey);
+        
+        // 验证解密后的密钥功能正确（可以从中提取公钥）
+        $publicKey = $this->keyHandler->privateKeyToPublicKey($decryptedKey);
+        $this->assertSame($keyPair['public_key'], $publicKey);
+    }
+    
+    public function test_decryptPrivateKey_withWrongPassphrase()
+    {
+        $this->expectException(KeyFormatException::class);
+        $this->expectExceptionMessage('私钥解密失败');
+        
+        // 先加密私钥
+        $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
+        $privateKey = $keyPair['private_key'];
+        $correctPassphrase = 'correct-password';
+        $wrongPassphrase = 'wrong-password';
+        
+        $encryptedKey = $this->keyHandler->encryptPrivateKey($privateKey, $correctPassphrase);
+        
+        // 用错误密码解密
+        $this->keyHandler->decryptPrivateKey($encryptedKey, $wrongPassphrase);
+    }
+    
+    public function test_decryptPrivateKey_withInvalidEncryptedKey()
+    {
+        $this->expectException(KeyFormatException::class);
+        $this->expectExceptionMessage('私钥解密失败');
+        
+        $invalidEncryptedKey = "-----BEGIN ENCRYPTED PRIVATE KEY-----\nInvalidData\n-----END ENCRYPTED PRIVATE KEY-----";
+        $this->keyHandler->decryptPrivateKey($invalidEncryptedKey, 'password');
+    }
+    
+    public function test_decryptPrivateKey_withUnencryptedKey()
+    {
+        // 尝试用密码解密未加密的私钥
+        $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
+        $unencryptedKey = $keyPair['private_key'];
+        
+        // 未加密的密钥用密码解密可能会成功（OpenSSL会忽略密码）
+        // 所以我们检查解密后的结果是否与原始密钥相同
+        $decryptedKey = $this->keyHandler->decryptPrivateKey($unencryptedKey, 'password');
+        
+        // 验证解密后的密钥功能正确
+        $originalPublicKey = $this->keyHandler->privateKeyToPublicKey($unencryptedKey);
+        $decryptedPublicKey = $this->keyHandler->privateKeyToPublicKey($decryptedKey);
+        
+        $this->assertSame($originalPublicKey, $decryptedPublicKey);
+    }
+    
+    public function test_encryptDecrypt_roundTrip()
+    {
+        $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
+        $originalPrivateKey = $keyPair['private_key'];
+        $passphrase = 'round-trip-test';
+        
+        // 加密然后解密
+        $encryptedKey = $this->keyHandler->encryptPrivateKey($originalPrivateKey, $passphrase);
+        $decryptedKey = $this->keyHandler->decryptPrivateKey($encryptedKey, $passphrase);
+        
+        // 验证往返加密解密后密钥功能一致
+        $originalPublicKey = $this->keyHandler->privateKeyToPublicKey($originalPrivateKey);
+        $decryptedPublicKey = $this->keyHandler->privateKeyToPublicKey($decryptedKey);
+        
+        $this->assertSame($originalPublicKey, $decryptedPublicKey);
+    }
+    
+    public function test_encryptPrivateKey_withSpecialCharactersInPassphrase()
+    {
+        $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
+        $privateKey = $keyPair['private_key'];
+        $passphrase = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+        
+        $encryptedKey = $this->keyHandler->encryptPrivateKey($privateKey, $passphrase);
+        $decryptedKey = $this->keyHandler->decryptPrivateKey($encryptedKey, $passphrase);
+        
+        // 验证特殊字符密码可以正常工作
+        $originalPublicKey = $this->keyHandler->privateKeyToPublicKey($privateKey);
+        $decryptedPublicKey = $this->keyHandler->privateKeyToPublicKey($decryptedKey);
+        
+        $this->assertSame($originalPublicKey, $decryptedPublicKey);
+    }
+    
+    public function test_encryptPrivateKey_withUnicodePassphrase()
+    {
+        $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
+        $privateKey = $keyPair['private_key'];
+        $passphrase = '测试密码123中文';
+        
+        $encryptedKey = $this->keyHandler->encryptPrivateKey($privateKey, $passphrase);
+        $decryptedKey = $this->keyHandler->decryptPrivateKey($encryptedKey, $passphrase);
+        
+        // 验证Unicode密码可以正常工作
+        $originalPublicKey = $this->keyHandler->privateKeyToPublicKey($privateKey);
+        $decryptedPublicKey = $this->keyHandler->privateKeyToPublicKey($decryptedKey);
+        
+        $this->assertSame($originalPublicKey, $decryptedPublicKey);
+    }
+    
+    public function test_encryptPrivateKey_withEcKey()
+    {
+        $keyPair = $this->keyHandler->generateEcKeyPair();
+        $privateKey = $keyPair['private_key'];
+        $passphrase = 'ec-key-password';
+        
+        $encryptedKey = $this->keyHandler->encryptPrivateKey($privateKey, $passphrase);
+        $decryptedKey = $this->keyHandler->decryptPrivateKey($encryptedKey, $passphrase);
+        
+        // 验证EC密钥加密解密正常
+        $originalPublicKey = $this->keyHandler->privateKeyToPublicKey($privateKey);
+        $decryptedPublicKey = $this->keyHandler->privateKeyToPublicKey($decryptedKey);
+        
+        $this->assertSame($originalPublicKey, $decryptedPublicKey);
+    }
+    
+    public function test_encryptPrivateKey_multipleDifferentPassphrases()
+    {
+        $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
+        $privateKey = $keyPair['private_key'];
+        
+        $passphrases = ['password1', 'password2', 'password3'];
+        
+        foreach ($passphrases as $passphrase) {
+            $encryptedKey = $this->keyHandler->encryptPrivateKey($privateKey, $passphrase);
+            $decryptedKey = $this->keyHandler->decryptPrivateKey($encryptedKey, $passphrase);
+            
+            // 每个密码都应该能正确加密和解密
+            $originalPublicKey = $this->keyHandler->privateKeyToPublicKey($privateKey);
+            $decryptedPublicKey = $this->keyHandler->privateKeyToPublicKey($decryptedKey);
+            
+            $this->assertSame($originalPublicKey, $decryptedPublicKey);
+        }
+    }
+} 
