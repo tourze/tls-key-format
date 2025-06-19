@@ -151,7 +151,6 @@ class PemDerFormatTest extends TestCase
         
         $result = $this->pemDerFormat->extractFromPem($validPem);
         
-        $this->assertIsArray($result);
         $this->assertArrayHasKey('type', $result);
         $this->assertArrayHasKey('data', $result);
         $this->assertSame('PRIVATE KEY', $result['type']);

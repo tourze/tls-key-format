@@ -11,18 +11,6 @@ use Tourze\TLSKeyFormat\Exception\KeyFormatException;
  */
 class KeyHandler
 {
-    /**
-     * @var PemDerFormat
-     */
-    private PemDerFormat $pemDerFormat;
-
-    /**
-     * 构造函数
-     */
-    public function __construct()
-    {
-        $this->pemDerFormat = new PemDerFormat();
-    }
 
     /**
      * 将RSA私钥转换为公钥

@@ -24,7 +24,6 @@ class KeyHandlerGenerationTest extends TestCase
     {
         $keyPair = $this->keyHandler->generateRsaKeyPair();
         
-        $this->assertIsArray($keyPair);
         $this->assertArrayHasKey('private_key', $keyPair);
         $this->assertArrayHasKey('public_key', $keyPair);
         
@@ -48,7 +47,6 @@ class KeyHandlerGenerationTest extends TestCase
     {
         $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
         
-        $this->assertIsArray($keyPair);
         $this->assertArrayHasKey('private_key', $keyPair);
         $this->assertArrayHasKey('public_key', $keyPair);
         
@@ -74,7 +72,6 @@ class KeyHandlerGenerationTest extends TestCase
     {
         $keyPair = $this->keyHandler->generateEcKeyPair();
         
-        $this->assertIsArray($keyPair);
         $this->assertArrayHasKey('private_key', $keyPair);
         $this->assertArrayHasKey('public_key', $keyPair);
         

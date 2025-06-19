@@ -50,20 +50,12 @@ class CertificateHandlerParsingTest extends TestCase
         return $certPem;
     }
     
-    private function generateExpiredCertificate(): string
-    {
-        // 生成已过期的证书（有效期为-1天，即昨天过期）
-        return $this->generateSelfSignedCertificate(-1);
-    }
     
     public function test_parseCertificate_withValidCertificate()
     {
         $certPem = $this->generateSelfSignedCertificate();
         
         $certInfo = $this->certificateHandler->parseCertificate($certPem);
-        
-        // 验证返回的是数组
-        $this->assertIsArray($certInfo);
         
         // 验证包含基本字段
         $this->assertArrayHasKey('subject', $certInfo);
@@ -219,8 +211,6 @@ class CertificateHandlerParsingTest extends TestCase
         
         $certInfo = $this->certificateHandler->parseCertificate($certPem);
         
-        // 验证证书解析成功
-        $this->assertIsArray($certInfo);
         $this->assertSame('ec-test.example.com', $certInfo['subject']['CN']);
         
         // 验证可以提取EC公钥
@@ -244,7 +234,6 @@ class CertificateHandlerParsingTest extends TestCase
         
         $certInfo = $this->certificateHandler->parseCertificate($certPem);
         
-        $this->assertIsArray($certInfo);
         $this->assertSame('minimal.test', $certInfo['subject']['CN']);
         $this->assertArrayHasKey('subject', $certInfo);
         $this->assertArrayHasKey('issuer', $certInfo);

@@ -77,7 +77,6 @@ class CertificateHandlerValidationTest extends TestCase
         if ($cert === false) {
             // 如果无法创建过期证书，跳过此测试
             $this->markTestSkipped('无法创建过期证书进行测试');
-            return;
         }
         
         openssl_x509_export($cert, $certPem);
@@ -104,8 +103,7 @@ class CertificateHandlerValidationTest extends TestCase
         $chainCerts = [$certPem];
         
         try {
-            $isValid = $this->certificateHandler->verifyCertificateChain($certPem, $chainCerts);
-            $this->assertIsBool($isValid);
+            $this->certificateHandler->verifyCertificateChain($certPem, $chainCerts);
         } catch (KeyFormatException $e) {
             // 自签名证书验证可能失败，这是正常的
             $this->assertStringContainsString('OpenSSL', $e->getMessage());
