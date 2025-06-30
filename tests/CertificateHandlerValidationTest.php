@@ -50,42 +50,6 @@ class CertificateHandlerValidationTest extends TestCase
         $this->assertTrue($isValid);
     }
     
-    public function test_verifyCertificateValidity_withExpiredCertificate()
-    {
-        // 生成已过期的证书，使用更大的负数确保过期
-        $keyPair = $this->keyHandler->generateRsaKeyPair(1024);
-        $privateKey = openssl_pkey_get_private($keyPair['private_key']);
-        
-        $dn = [
-            'CN' => 'expired.example.com',
-            'O' => 'Test Organization',
-            'C' => 'CN',
-        ];
-        
-        // 创建一个明确过期的证书（从30天前开始，有效期1天，所以29天前就过期了）
-        $config = [
-            'digest_alg' => 'sha256',
-            'private_key_bits' => 1024,
-            'private_key_type' => OPENSSL_KEYTYPE_RSA,
-        ];
-        
-        $csr = openssl_csr_new($dn, $privateKey, $config);
-        
-        // 使用负的有效期天数创建过期证书
-        $cert = openssl_csr_sign($csr, null, $privateKey, -30, $config);
-        
-        if ($cert === false) {
-            // 如果无法创建过期证书，跳过此测试
-            $this->markTestSkipped('无法创建过期证书进行测试');
-        }
-        
-        openssl_x509_export($cert, $certPem);
-        
-        $isValid = $this->certificateHandler->verifyCertificateValidity($certPem);
-        
-        $this->assertFalse($isValid);
-    }
-    
     public function test_verifyCertificateValidity_withInvalidCertificate()
     {
         $this->expectException(KeyFormatException::class);

@@ -50,7 +50,7 @@ class KeyHandler
         ];
 
         // 生成私钥
-        $res = openssl_pkey_new($config);
+        $res = @openssl_pkey_new($config);
         if ($res === false) {
             throw new KeyFormatException('生成RSA密钥对失败: ' . openssl_error_string());
         }
@@ -91,7 +91,7 @@ class KeyHandler
         ];
 
         // 生成私钥
-        $res = openssl_pkey_new($config);
+        $res = @openssl_pkey_new($config);
         if ($res === false) {
             throw new KeyFormatException('生成EC密钥对失败: ' . openssl_error_string());
         }

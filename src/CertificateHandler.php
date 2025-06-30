@@ -76,7 +76,7 @@ class CertificateHandler
      */
     public function extractPublicKey(string $pemCert): string
     {
-        $certResource = openssl_x509_read($pemCert);
+        $certResource = @openssl_x509_read($pemCert);
         if ($certResource === false) {
             throw new KeyFormatException('OpenSSL无法读取证书: ' . openssl_error_string());
         }
@@ -116,7 +116,7 @@ class CertificateHandler
             file_put_contents($chainFile, implode("\n", $chainCerts));
             
             // 验证证书
-            $certResource = openssl_x509_read($pemCert);
+            $certResource = @openssl_x509_read($pemCert);
             if ($certResource === false) {
                 throw new KeyFormatException('OpenSSL无法读取证书: ' . openssl_error_string());
             }
