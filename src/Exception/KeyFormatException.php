@@ -9,4 +9,4 @@ namespace Tourze\TLSKeyFormat\Exception;
  */
 class KeyFormatException extends \Exception
 {
-} 
+}

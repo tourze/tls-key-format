@@ -4,38 +4,51 @@ declare(strict_types=1);
 
 namespace Tourze\TLSKeyFormat;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Tourze\TLSKeyFormat\Tests\CertificateHandlerParsingTest;
-use Tourze\TLSKeyFormat\Tests\CertificateHandlerValidationTest;
 
 /**
  * 主测试类，集成所有CertificateHandler相关测试
+ *
+ * @internal
  */
-class CertificateHandlerTest extends TestCase
+#[CoversClass(CertificateHandler::class)]
+final class CertificateHandlerTest extends TestCase
 {
-    /**
-     * 测试CertificateHandler类的存在
-     */
-    public function test_certificateHandlerClassExists(): void
-    {
-        $this->assertTrue(class_exists(CertificateHandler::class));
-    }
-    
     /**
      * 测试CertificateHandler可以被实例化
      */
-    public function test_certificateHandlerCanBeInstantiated(): void
+    public function testCertificateHandlerCanBeInstantiated(): void
     {
         $handler = new CertificateHandler();
         $this->assertInstanceOf(CertificateHandler::class, $handler);
     }
-    
-    /**
-     * 测试相关测试类的存在
-     */
-    public function test_relatedTestClassesExist(): void
+
+    public function testParseCertificate(): void
     {
-        $this->assertTrue(class_exists(CertificateHandlerParsingTest::class));
-        $this->assertTrue(class_exists(CertificateHandlerValidationTest::class));
+        $handler = new CertificateHandler();
+        $this->expectException(Exception\KeyFormatException::class);
+        $handler->parseCertificate('invalid');
+    }
+
+    public function testExtractPublicKey(): void
+    {
+        $handler = new CertificateHandler();
+        $this->expectException(Exception\KeyFormatException::class);
+        $handler->extractPublicKey('invalid');
+    }
+
+    public function testVerifyCertificateValidity(): void
+    {
+        $handler = new CertificateHandler();
+        $this->expectException(Exception\KeyFormatException::class);
+        $handler->verifyCertificateValidity('invalid');
+    }
+
+    public function testVerifyCertificateChain(): void
+    {
+        $handler = new CertificateHandler();
+        $this->expectException(Exception\KeyFormatException::class);
+        $handler->verifyCertificateChain('invalid', []);
     }
 }

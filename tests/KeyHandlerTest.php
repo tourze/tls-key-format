@@ -4,40 +4,60 @@ declare(strict_types=1);
 
 namespace Tourze\TLSKeyFormat;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use Tourze\TLSKeyFormat\Tests\KeyHandlerConversionTest;
-use Tourze\TLSKeyFormat\Tests\KeyHandlerEncryptionTest;
-use Tourze\TLSKeyFormat\Tests\KeyHandlerGenerationTest;
 
 /**
  * 主测试类，集成所有KeyHandler相关测试
+ *
+ * @internal
  */
-class KeyHandlerTest extends TestCase
+#[CoversClass(KeyHandler::class)]
+final class KeyHandlerTest extends TestCase
 {
-    /**
-     * 测试KeyHandler类的存在
-     */
-    public function test_keyHandlerClassExists(): void
-    {
-        $this->assertTrue(class_exists(KeyHandler::class));
-    }
-    
     /**
      * 测试KeyHandler可以被实例化
      */
-    public function test_keyHandlerCanBeInstantiated(): void
+    public function testKeyHandlerCanBeInstantiated(): void
     {
         $handler = new KeyHandler();
         $this->assertInstanceOf(KeyHandler::class, $handler);
     }
-    
-    /**
-     * 测试相关测试类的存在
-     */
-    public function test_relatedTestClassesExist(): void
+
+    public function testPrivateKeyToPublicKey(): void
     {
-        $this->assertTrue(class_exists(KeyHandlerConversionTest::class));
-        $this->assertTrue(class_exists(KeyHandlerEncryptionTest::class));
-        $this->assertTrue(class_exists(KeyHandlerGenerationTest::class));
+        $handler = new KeyHandler();
+        $this->expectException(Exception\KeyFormatException::class);
+        $handler->privateKeyToPublicKey('invalid');
+    }
+
+    public function testGenerateRsaKeyPair(): void
+    {
+        $handler = new KeyHandler();
+        $result = $handler->generateRsaKeyPair();
+        $this->assertArrayHasKey('private_key', $result);
+        $this->assertArrayHasKey('public_key', $result);
+    }
+
+    public function testGenerateEcKeyPair(): void
+    {
+        $handler = new KeyHandler();
+        $result = $handler->generateEcKeyPair();
+        $this->assertArrayHasKey('private_key', $result);
+        $this->assertArrayHasKey('public_key', $result);
+    }
+
+    public function testEncryptPrivateKey(): void
+    {
+        $handler = new KeyHandler();
+        $this->expectException(Exception\KeyFormatException::class);
+        $handler->encryptPrivateKey('invalid', 'password');
+    }
+
+    public function testDecryptPrivateKey(): void
+    {
+        $handler = new KeyHandler();
+        $this->expectException(Exception\KeyFormatException::class);
+        $handler->decryptPrivateKey('invalid', 'password');
     }
 }
